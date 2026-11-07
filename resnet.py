@@ -5,10 +5,10 @@ import math
 from torch.autograd import Variable
 import torch.nn.init as init
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def to_var(x, requires_grad=True):
-    if torch.cuda.is_available():
-        x = x.cuda()
+    x = x.to(device)
     return Variable(x, requires_grad=requires_grad)
 
 
@@ -218,7 +218,7 @@ class MetaBatchNorm2d(MetaModule):
 def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, MetaLinear) or isinstance(m, MetaConv2d):
-        init.kaiming_normal(m.weight)
+        init.kaiming_normal_(m.weight)
 
 class LambdaLayer(MetaModule):
     def __init__(self, lambd):

@@ -15,6 +15,9 @@ numpy 1.19.2
 
 Stage1: 
 
+Local reproduction setup: see [REPRODUCTION.md](REPRODUCTION.md) for the single-run
+command, reconstructed pretraining, and documented paper/code differences.
+
 Pretrain the backbone with the imbalanced training set. See paper for more detailes.
 
 Adjust your file path according to the code.

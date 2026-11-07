@@ -56,10 +56,10 @@ class SinkhornDistance(nn.Module):
             batch_size = x.shape[0]
 
         mu = torch.empty(batch_size, x_points, dtype=torch.float,
-                         requires_grad=False).fill_(1.0 / x_points).to(device).squeeze()
+                         requires_grad=False).fill_(1.0 / x_points).to(x.device).squeeze(0)
 
-        u = torch.zeros_like(mu).to(device)
-        v = torch.zeros_like(nu).to(device)
+        u = torch.zeros_like(mu)
+        v = torch.zeros_like(nu)
         actual_nits = 0
         thresh = 1e-1
 
@@ -75,6 +75,10 @@ class SinkhornDistance(nn.Module):
 
         U, V = u, v
         pi = torch.exp(self.M(C, U, V))
+        with torch.no_grad():
+            self.last_marginal_error = max(
+                (pi.sum(-1) - mu).abs().max().item(),
+                (pi.sum(-2) - nu).abs().max().item())
         cost = torch.sum(pi * C, dim=(-2, -1))
 
         if self.reduction == 'mean':

@@ -1,0 +1,9 @@
+# Authors' versions; use a separate Python 3.6 environment, not the main project.
+torch==1.7.1
+torchvision==0.8.2
+numpy==1.19.2
+tqdm==4.19.9
+# Imported by the released Sinkhorn modules; compatible additions for Python 3.6.
+scipy==1.5.4
+scikit-learn==0.24.2
+pytest==6.2.5

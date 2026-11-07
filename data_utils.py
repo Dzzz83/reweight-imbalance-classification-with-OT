@@ -9,11 +9,10 @@ import torchvision.transforms as transforms
 import torchvision
 import numpy as np
 import copy
+import random
 from torch.utils.data import Dataset
 
-np.random.seed(6)
-
-def build_dataset(dataset,num_meta):
+def build_dataset(dataset, num_meta, data_root=None, download=False):
     normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
 
@@ -34,14 +33,16 @@ def build_dataset(dataset,num_meta):
     ])
 
     if dataset == 'cifar10':
-        train_dataset = torchvision.datasets.CIFAR10(root='../cifar-10', train=True, download=False, transform=transform_train)
-        test_dataset = torchvision.datasets.CIFAR10('../cifar-10', train=False, transform=transform_test)
+        data_root = data_root or '../cifar-10'
+        train_dataset = torchvision.datasets.CIFAR10(root=data_root, train=True, download=download, transform=transform_train)
+        test_dataset = torchvision.datasets.CIFAR10(data_root, train=False, transform=transform_test)
         img_num_list = [num_meta] * 10
         num_classes = 10
 
     if dataset == 'cifar100':
-        train_dataset = torchvision.datasets.CIFAR100(root='../cifar-100', train=True, download=True, transform=transform_train)
-        test_dataset = torchvision.datasets.CIFAR100('../cifar-100', train=False, transform=transform_test)
+        data_root = data_root or '../cifar-100'
+        train_dataset = torchvision.datasets.CIFAR100(root=data_root, train=True, download=download, transform=transform_train)
+        test_dataset = torchvision.datasets.CIFAR100(data_root, train=False, transform=transform_test)
         img_num_list = [num_meta] * 100
         num_classes = 100
 
@@ -53,8 +54,9 @@ def build_dataset(dataset,num_meta):
     idx_to_train = []
     print(img_num_list)
 
+    meta_random = np.random.RandomState(6)
     for cls_idx, img_id_list in data_list_val.items():
-        np.random.shuffle(img_id_list)
+        meta_random.shuffle(img_id_list)
         img_num = img_num_list[int(cls_idx)]
         idx_to_meta.extend(img_id_list[:img_num])
         idx_to_train.extend(img_id_list[img_num:])
@@ -65,6 +67,8 @@ def build_dataset(dataset,num_meta):
     train_data_meta.targets = np.delete(train_dataset.targets, idx_to_train, axis=0)
     train_data.data = np.delete(train_dataset.data, idx_to_meta, axis=0)
     train_data.targets = np.delete(train_dataset.targets, idx_to_meta, axis=0)
+    train_data.original_indices = np.delete(np.arange(len(train_dataset)), idx_to_meta)
+    train_data_meta.original_indices = np.delete(np.arange(len(train_dataset)), idx_to_train)
 
     return train_data_meta, train_data, test_dataset
 
@@ -85,6 +89,25 @@ def get_img_num_per_cls(dataset, imb_factor=None, num_meta=None):
         num = img_max * (imb_factor**(cls_idx / (cls_num - 1.0)))
         img_num_per_cls.append(int(num))
     return img_num_per_cls
+
+
+def build_experiment_data(dataset, num_meta, imb_factor, data_root, download=False):
+    """Reproduce the release's meta split (seed 6) and retention (seed 42)."""
+    meta, train, test = build_dataset(dataset, num_meta, data_root, download)
+    num_classes = 10 if dataset == 'cifar10' else 100
+    counts = get_img_num_per_cls(dataset, imb_factor, num_meta * num_classes)
+    retention_random = random.Random(42)
+    deleted = []
+    for class_id in range(num_classes):
+        indices = [i for i, label in enumerate(train.targets) if label == class_id]
+        retention_random.shuffle(indices)
+        if len(indices) < counts[class_id] or counts[class_id] < 1:
+            raise ValueError('Invalid retained count for class {}'.format(class_id))
+        deleted.extend(indices[counts[class_id]:])
+    train.data = np.delete(train.data, deleted, axis=0)
+    train.targets = np.delete(train.targets, deleted, axis=0)
+    train.original_indices = np.delete(train.original_indices, deleted)
+    return meta, train, test, counts
 
 class new_dataset(Dataset):
     def __init__(self, dataset, train=None):

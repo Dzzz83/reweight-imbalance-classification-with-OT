@@ -57,10 +57,10 @@ class SinkhornDistance(nn.Module):
             batch_size = x.shape[0]
 
         mu = torch.empty(batch_size, x_points, dtype=torch.float,
-                         requires_grad=False).fill_(1.0 / x_points).to(device).squeeze()
+                         requires_grad=False).fill_(1.0 / x_points).to(x.device).squeeze(0)
 
-        u = torch.zeros_like(mu).to(device)
-        v = torch.zeros_like(nu).to(device)
+        u = torch.zeros_like(mu)
+        v = torch.zeros_like(nu)
 
         actual_nits = 0
         thresh = 1e-1
@@ -90,6 +90,7 @@ class SinkhornDistance(nn.Module):
         "$M_{ij} = (-c_{ij} + u_i + v_j) / \epsilon$"
         return (-C + u.unsqueeze(-1) + v.unsqueeze(-2)) / self.eps
 
+    @staticmethod
     def _cost_matrix(x, y, dis, p=2):
         "Returns the matrix of $|x_i-y_j|^p$."
         x_col = x.unsqueeze(-2)
